@@ -2,52 +2,54 @@
 <head>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser-arcade-physics.min.js"></script>
     <title>Our solution</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
 <body>
 
 <script>
-    const config = {
-        type: Phaser.AUTO,
-        width: 800,
-        height: 600,
-        physics: {
-            default: 'arcade',
-            arcade: {
-                gravity: {y: 200}
-            }
+    new Phaser.Game({
+        scale: {
+            mode: Phaser.Scale.RESIZE,
+            width: "100%",
+            height: "100%"
         },
         scene: {
             preload: preload,
             create: create
         }
-    };
-
-    const game = new Phaser.Game(config);
+    });
 
     function preload() {
-        this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
-        this.load.image('logo', 'https://labs.phaser.io/assets/sprites/phaser3-logo.png');
-        this.load.image('red', 'https://labs.phaser.io/assets/particles/red.png');
+        // this.load.image('key', 'path');
     }
 
     function create() {
-        this.add.image(400, 300, 'sky');
+        const car = this.add.rectangle(200, 200, 148, 100, 0x6666ff);
+        car.setInteractive();
 
-        const particles = this.add.particles('red');
 
-        const emitter = particles.createEmitter({
-            speed: 100,
-            scale: {start: 1, end: 0},
-            blendMode: 'ADD'
+        const draggables = [
+            this.add.rectangle(20, 20, 20, 20, 0xffffff),
+            this.add.circle(50, 20, 20, 0xffffff)
+        ]
+
+
+        draggables.forEach(value => value.setInteractive())
+        this.input.setDraggable(draggables);
+        this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
+            gameObject.setPosition(dragX, dragY)
         });
 
-        const logo = this.physics.add.image(400, 100, 'logo');
+        this.scale.on('resize', resize, this);
+    }
 
-        logo.setVelocity(100, 200);
-        logo.setBounce(1, 1);
-        logo.setCollideWorldBounds(true);
-
-        emitter.startFollow(logo);
+    function resize (gameSize) {
+        this.cameras.resize(gameSize.width, gameSize.height);
     }
 </script>
 </body>
