@@ -62,7 +62,15 @@
             value.on('wheel', function (pointer, deltaX, deltaY) {
                 value.scale += deltaY * -0.001;
             });
+
+            this.physics.add.existing(value);
+            if (value.type === "Arc")
+                value.body.setCircle(value.width / 2)
+            console.log(value)
+            //
+            value.body.collideWorldBounds = true;
         });
+        this.physics.add.collider(car, drags);
         this.input.setDraggable(drags);
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
             gameObject.setPosition(dragX, dragY);
