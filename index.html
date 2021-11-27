@@ -82,6 +82,7 @@
     }
 
     function create() {
+        this.makeDraggable = makeDraggable;
         this.cursors = this.input.keyboard.createCursorKeys();
         this.lastTimeClick = {time: 0, objects: [], right: false};
         this.drags = []
@@ -89,10 +90,8 @@
         this.car = this.matter.add.image(400, 300, 'carIMG');
         this.car.setInteractive();
 
-
-        makeDraggable.call(this, this.add.rectangle(20, 20, 20, 30, 0xffffff));
-        makeDraggable.call(this, this.add.circle(50, 20, 20, 0xffffff));
-
+        this.makeDraggable(this.add.rectangle(20, 20, 20, 30, 0xffffff));
+        this.makeDraggable(this.add.circle(50, 20, 20, 0xffffff));
 
         this.input.mouse.disableContextMenu();
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
@@ -107,21 +106,21 @@
                         this.scene.rotateObj = obj;
                 });
             }
-            let clickDelay = pointer.time - this.scene.lastTimeClick.time;
-            if (this.scene.lastTimeClick.right === right && clickDelay < 200) {
+            if (this.scene.lastTimeClick.right === right && pointer.time - this.scene.lastTimeClick.time < 200) {
                 const set = new Set(this.scene.lastTimeClick.objects);
                 gameObject.filter(o => set.has(o)).forEach(v => {
                     if (right) {
                         const i = this.scene.drags.indexOf(v);
                         if (i !== -1) {
                             delete this.scene.drags[i];
+                            this.scene.rotateObj = undefined;
                             v.destroy();
                         }
                     } else {
                         if (v.type === "Arc") {
-                            makeDraggable.call(this.scene, this.scene.add.circle(v.x + 10, v.y + 10, v.radius * v.scale, 0xffffff))
+                            this.scene.makeDraggable(this.scene.add.circle(v.x + 10, v.y + 10, v.radius * v.scale, 0xffffff))
                         } else if (v.type === "Rectangle") {
-                            makeDraggable.call(this.scene, this.scene.add.rectangle(v.x + 10, v.y + 10, v.width * v.scaleX, v.height * v.scaleY, 0xffffff))
+                            this.scene.makeDraggable(this.scene.add.rectangle(v.x + 10, v.y + 10, v.width * v.scaleX, v.height * v.scaleY, 0xffffff))
                         }
                     }
                 }, this);
