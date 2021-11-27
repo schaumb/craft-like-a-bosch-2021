@@ -1,7 +1,7 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser-arcade-physics.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2"></script>
     <title>Our solution</title>
     <style>
         body {
@@ -26,15 +26,59 @@
             update: update
         },
         physics: {
-            default: 'arcade',
-            arcade: {
-                debug: true
+            default: 'matter',
+            matter: {
+                setBounds: true,
+                gravity: false,
+                debug: {
+                    showBounds: true,
+                    showVelocity: true,
+                    showCollisions: true,
+                    showSeparation: true,
+                    showInternalEdges: true,
+                    showConvexHulls: true
+                }
             }
         }
     });
 
-    var cursors;
-    var car;
+    let cursors;
+    let car;
+    let drags;
+
+    function genCircle(count, x, y, radius) {
+        const res = []
+        for (let i = 0; i < count; ++i) {
+            const r = Math.PI * 2 * i / count;
+            res.push({x: Math.sin(r) * radius + x, y: Math.cos(r) * radius + y})
+        }
+        return res
+    }
+
+    function makeDraggable(value) {
+        value.setInteractive({
+            cursor: 'grabbing'
+        })
+        value.on('wheel', function (pointer, deltaX, deltaY) {
+            value.setScale(value.scale + deltaY * -0.001);
+            // value.scale += deltaY * -0.001;
+        });
+
+        if (value.type === "Arc")
+            this.matter.add.gameObject(value, {
+                circleRadius: value.width / 2,
+                vertices: genCircle(26, value.x, value.y, value.width / 2),
+                isStatic: true
+            });
+        else
+            this.matter.add.gameObject(value, {
+                isStatic: true
+            });
+        value.body.maxSpeed = 0;
+
+        this.input.setDraggable(value);
+        drags.push(value)
+    }
 
     function preload() {
         // this.load.image('key', 'path');
@@ -45,45 +89,59 @@
 
         cursors = this.input.keyboard.createCursorKeys();
 
-        car = this.physics.add.image(400, 300, 'carIMG');
-        //car.setInteractive();
-        car.setCollideWorldBounds(true);
+        car = this.matter.add.image(400, 300, 'carIMG');
+        car.setInteractive();
+        drags = []
 
+        let rect = this.add.rectangle(20, 20, 20, 30, 0xffffff);
+        let circ = this.add.circle(50, 20, 20, 0xffffff);
+        [rect, circ].forEach(makeDraggable, this);
 
-        const drags = [
-            this.add.rectangle(20, 20, 20, 30, 0xffffff),
-            this.add.circle(50, 20, 20, 0xffffff)
-        ]
-
-
-        drags.forEach(value => {
-            value.setInteractive({
-                cursor: 'grabbing'
-            })
-            value.on('wheel', function (pointer, deltaX, deltaY) {
-                value.scale += deltaY * -0.001;
-            });
-
-            this.physics.add.existing(value);
-            if (value.type === "Arc")
-                value.body.setCircle(value.width / 2)
-            console.log(value)
-            //
-            value.body.collideWorldBounds = true;
-            value.body.maxSpeed = 0;
-        });
-        this.physics.add.collider(car, drags);
-        this.input.setDraggable(drags);
+        this.input.mouse.disableContextMenu();
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
             gameObject.setPosition(dragX, dragY);
         });
 
+        let lastTimeClick = {time: 0, objects: [], right: false};
+        this.input.on("pointerdown", function (pointer, gameObject) {
+            const right = pointer.rightButtonDown();
+            if (right) {
+                gameObject.forEach(obj => {
+                    if (obj.type === "Arc")
+                        return;
+                    obj.setAngle(obj.angle + 10);
+                });
+            }
+            let clickDelay = pointer.time - lastTimeClick.time;
+            if (lastTimeClick.right === right && clickDelay < 200) {
+                const set = new Set(lastTimeClick.objects);
+                gameObject.filter(o => set.has(o)).forEach(v => {
+                    if (right) {
+                        v.destroy();
+                        delete drags[drags.indexOf(v)];
+                    } else {
+                        if (v.type === "Arc") {
+                            [this.scene.add.circle(v.x+10, v.y+10, v.radius * v.scale, 0xffffff)]
+                                .forEach(makeDraggable, this.scene)
+                        } else {
+                            [this.scene.add.rectangle(v.x+10, v.y+10, v.width * v.scaleX, v.height * v.scaleY, 0xffffff)]
+                                .forEach(makeDraggable, this.scene)
+                        }
+                    }
+                }, this);
+            }
+            lastTimeClick = {
+                time: pointer.time,
+                objects: gameObject,
+                right: right
+            };
+        })
         this.scale.on('resize', resize, this);
     }
 
     function resize (gameSize) {
         this.cameras.resize(gameSize.width, gameSize.height);
-        this.physics.world.setBounds(0, 0, gameSize.width, gameSize.height);
+        this.matter.world.setBounds(0, 0, gameSize.width, gameSize.height);
     }
 
     function update ()
@@ -92,20 +150,20 @@
 
         if (cursors.left.isDown)
         {
-            car.setVelocityX(-300);
+            car.setVelocityX(-3);
         }
         else if (cursors.right.isDown)
         {
-            car.setVelocityX(300);
+            car.setVelocityX(3);
         }
 
         if (cursors.up.isDown)
         {
-            car.setVelocityY(-300);
+            car.setVelocityY(-3);
         }
         else if (cursors.down.isDown)
         {
-            car.setVelocityY(300);
+            car.setVelocityY(3);
         }
     }
 </script>
