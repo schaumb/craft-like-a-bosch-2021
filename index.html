@@ -1,5 +1,6 @@
 <html lang="hu">
 <head>
+    <meta charset="UTF-8">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser-arcade-physics.min.js"></script>
     <title>Our solution</title>
     <style>
@@ -69,6 +70,7 @@
             console.log(value)
             //
             value.body.collideWorldBounds = true;
+            value.body.maxSpeed = 0;
         });
         this.physics.add.collider(car, drags);
         this.input.setDraggable(drags);
@@ -81,6 +83,7 @@
 
     function resize (gameSize) {
         this.cameras.resize(gameSize.width, gameSize.height);
+        this.physics.world.setBounds(0, 0, gameSize.width, gameSize.height);
     }
 
     function update ()
