@@ -49,16 +49,23 @@
         car.setCollideWorldBounds(true);
 
 
-        const draggables = [
-            this.add.rectangle(20, 20, 20, 20, 0xffffff),
+        const drags = [
+            this.add.rectangle(20, 20, 20, 30, 0xffffff),
             this.add.circle(50, 20, 20, 0xffffff)
         ]
 
 
-        draggables.forEach(value => value.setInteractive())
-        this.input.setDraggable(draggables);
+        drags.forEach(value => {
+            value.setInteractive({
+                cursor: 'grabbing'
+            })
+            value.on('wheel', function (pointer, deltaX, deltaY) {
+                value.scale += deltaY * -0.001;
+            });
+        });
+        this.input.setDraggable(drags);
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
-            gameObject.setPosition(dragX, dragY)
+            gameObject.setPosition(dragX, dragY);
         });
 
         this.scale.on('resize', resize, this);
