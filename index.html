@@ -13,7 +13,7 @@
 <body>
 
 <script>
-    var game = new Phaser.Game({
+    new Phaser.Game({
         type: Phaser.AUTO,
         scale: {
             mode: Phaser.Scale.RESIZE,
@@ -41,11 +41,6 @@
             }
         }
     });
-
-    let cursors;
-    let car;
-    let drags;
-    let rotateObj;
 
     function genCircle(count, x, y, radius) {
         const res = []
@@ -78,7 +73,7 @@
         value.body.maxSpeed = 0;
 
         this.input.setDraggable(value);
-        drags.push(value)
+        this.drags.push(value)
     }
 
     function preload() {
@@ -87,42 +82,39 @@
     }
 
     function create() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.lastTimeClick = {time: 0, objects: [], right: false};
+        this.drags = []
 
-        cursors = this.input.keyboard.createCursorKeys();
+        this.car = this.matter.add.image(400, 300, 'carIMG');
+        this.car.setInteractive();
 
-        car = this.matter.add.image(400, 300, 'carIMG');
-        car.setInteractive();
-        drags = []
 
         makeDraggable.call(this, this.add.rectangle(20, 20, 20, 30, 0xffffff));
         makeDraggable.call(this, this.add.circle(50, 20, 20, 0xffffff));
+
 
         this.input.mouse.disableContextMenu();
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
             gameObject.setPosition(dragX, dragY);
         });
-
-        let lastTimeClick = {time: 0, objects: [], right: false};
-
-        this.input.on("pointerup", function () {
-            rotateObj = undefined;
-        });
+        this.input.on("pointerup", function () { this.scene.rotateObj = undefined; });
         this.input.on("pointerdown", function (pointer, gameObject) {
             const right = pointer.rightButtonDown();
             if (right) {
                 gameObject.forEach(obj => {
                     if (obj.type === "Rectangle")
-                        rotateObj = obj;
+                        this.scene.rotateObj = obj;
                 });
             }
-            let clickDelay = pointer.time - lastTimeClick.time;
-            if (lastTimeClick.right === right && clickDelay < 200) {
-                const set = new Set(lastTimeClick.objects);
+            let clickDelay = pointer.time - this.scene.lastTimeClick.time;
+            if (this.scene.lastTimeClick.right === right && clickDelay < 200) {
+                const set = new Set(this.scene.lastTimeClick.objects);
                 gameObject.filter(o => set.has(o)).forEach(v => {
                     if (right) {
-                        const i = drags.indexOf(v);
+                        const i = this.scene.drags.indexOf(v);
                         if (i !== -1) {
-                            delete drags[i];
+                            delete this.scene.drags[i];
                             v.destroy();
                         }
                     } else {
@@ -134,7 +126,7 @@
                     }
                 }, this);
             } else {
-                lastTimeClick = {
+                this.scene.lastTimeClick = {
                     time: pointer.time,
                     objects: gameObject,
                     right: right
@@ -150,22 +142,22 @@
     }
 
     function update() {
-        car.setVelocity(0);
+        this.car.setVelocity(0);
 
-        if (cursors.left.isDown) {
-            car.setVelocityX(-3);
-        } else if (cursors.right.isDown) {
-            car.setVelocityX(3);
+        if (this.cursors.left.isDown) {
+            this.car.setVelocityX(-3);
+        } else if (this.cursors.right.isDown) {
+            this.car.setVelocityX(3);
         }
 
-        if (cursors.up.isDown) {
-            car.setVelocityY(-3);
-        } else if (cursors.down.isDown) {
-            car.setVelocityY(3);
+        if (this.cursors.up.isDown) {
+            this.car.setVelocityY(-3);
+        } else if (this.cursors.down.isDown) {
+            this.car.setVelocityY(3);
         }
 
-        if (rotateObj) {
-            rotateObj.setAngle(rotateObj.angle + 2);
+        if (this.rotateObj) {
+            this.rotateObj.setAngle(this.rotateObj.angle + 1);
         }
     }
 </script>
