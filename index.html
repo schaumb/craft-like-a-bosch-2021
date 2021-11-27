@@ -45,6 +45,7 @@
     let cursors;
     let car;
     let drags;
+    let rotateObj;
 
     function genCircle(count, x, y, radius) {
         const res = []
@@ -102,12 +103,16 @@
         });
 
         let lastTimeClick = {time: 0, objects: [], right: false};
+
+        this.input.on("pointerup", function () {
+            rotateObj = undefined;
+        });
         this.input.on("pointerdown", function (pointer, gameObject) {
             const right = pointer.rightButtonDown();
             if (right) {
                 gameObject.forEach(obj => {
                     if (obj.type === "Rectangle")
-                        obj.setAngle(obj.angle + 10);
+                        rotateObj = obj;
                 });
             }
             let clickDelay = pointer.time - lastTimeClick.time;
@@ -128,12 +133,13 @@
                         }
                     }
                 }, this);
+            } else {
+                lastTimeClick = {
+                    time: pointer.time,
+                    objects: gameObject,
+                    right: right
+                };
             }
-            lastTimeClick = {
-                time: pointer.time,
-                objects: gameObject,
-                right: right
-            };
         })
         this.scale.on('resize', resize, this);
     }
@@ -156,6 +162,10 @@
             car.setVelocityY(-3);
         } else if (cursors.down.isDown) {
             car.setVelocityY(3);
+        }
+
+        if (rotateObj) {
+            rotateObj.setAngle(rotateObj.angle + 2);
         }
     }
 </script>
