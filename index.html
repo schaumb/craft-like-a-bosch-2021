@@ -165,6 +165,10 @@
             theCar.carSpeed -= 0.01;
         }
 
+        if (!this.cursors.up.isDown && !this.cursors.down.isDown) {
+            theCar.carSpeed -= Math.sign(theCar.carSpeed) * 0.005 * (1 + Math.abs(theCar.wheelRotation));
+        }
+
         theCar.setAngularVelocity(theCar.wheelRotation * 0.005 * theCar.carSpeed*10)
         theCar.setVelocityX(-Math.cos(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
         theCar.setVelocityY(-Math.sin(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
