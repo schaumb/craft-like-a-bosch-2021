@@ -86,10 +86,13 @@
         this.lastTimeClick = {time: 0, objects: [], right: false};
         this.drags = []
 
+        const wheels = [this.add.rectangle(300, 220, 30, 20, 0x444444), this.add.rectangle(300, 380, 30, 20, 0x444444)];
         this.car = this.matter.add.image(400, 300, 'carIMG');
         this.car.setInteractive();
         this.car.carSpeed = 0;
         this.car.wheelRotation = 0;
+        this.car.wheels = wheels;
+
 
         this.makeDraggable(this.add.rectangle(20, 20, 20, 30, 0xffffff));
         this.makeDraggable(this.add.circle(50, 20, 20, 0xffffff));
@@ -161,10 +164,12 @@
         } else if (this.cursors.down.isDown && theCar.carSpeed > -1.0) {
             theCar.carSpeed -= 0.01;
         }
-        
+
         theCar.setAngularVelocity(theCar.wheelRotation * 0.005 * theCar.carSpeed*10)
         theCar.setVelocityX(-Math.cos(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
         theCar.setVelocityY(-Math.sin(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
+
+        theCar.wheels.forEach(v => v.setAngle(theCar.wheelRotation / Math.PI * 180 ))
 
         if (this.rotateObj) {
             this.rotateObj.setAngle(this.rotateObj.angle + 1);
