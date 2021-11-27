@@ -12,7 +12,8 @@
 <body>
 
 <script>
-    new Phaser.Game({
+    var game = new Phaser.Game({
+        type: Phaser.AUTO,
         scale: {
             mode: Phaser.Scale.RESIZE,
             width: "100%",
@@ -20,17 +21,32 @@
         },
         scene: {
             preload: preload,
-            create: create
+            create: create,
+            update: update
+        },
+        physics: {
+            default: 'arcade',
+            arcade: {
+                debug: true
+            }
         }
     });
 
+    var cursors;
+    var car;
+
     function preload() {
         // this.load.image('key', 'path');
+        this.load.image('carIMG', 'car.png');
     }
 
     function create() {
-        const car = this.add.rectangle(200, 200, 148, 100, 0x6666ff);
-        car.setInteractive();
+
+        cursors = this.input.keyboard.createCursorKeys();
+
+        car = this.physics.add.image(400, 300, 'carIMG');
+        //car.setInteractive();
+        car.setCollideWorldBounds(true);
 
 
         const draggables = [
@@ -50,6 +66,29 @@
 
     function resize (gameSize) {
         this.cameras.resize(gameSize.width, gameSize.height);
+    }
+
+    function update ()
+    {
+        car.setVelocity(0);
+
+        if (cursors.left.isDown)
+        {
+            car.setVelocityX(-300);
+        }
+        else if (cursors.right.isDown)
+        {
+            car.setVelocityX(300);
+        }
+
+        if (cursors.up.isDown)
+        {
+            car.setVelocityY(-300);
+        }
+        else if (cursors.down.isDown)
+        {
+            car.setVelocityY(300);
+        }
     }
 </script>
 </body>
