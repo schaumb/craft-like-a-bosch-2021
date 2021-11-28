@@ -111,8 +111,7 @@
             x: x,
             y: y,
             onTheLine: Math.min(lineStart.x, lineEnd.x) <= x && x <= Math.max(lineStart.x, lineEnd.x) &&
-                Math.min(lineStart.y, lineEnd.y) <= y && y <= Math.max(lineStart.y, lineEnd.y),
-            getDistance: () => distance(otherPoint, {x:x, y:y})
+                Math.min(lineStart.y, lineEnd.y) <= y && y <= Math.max(lineStart.y, lineEnd.y)
         };
     }
 
@@ -126,9 +125,10 @@
                 sensorCircle.sensorHits.push({
                     direct: true,
                     angle: res.angle > 180 ? res.angle - 180 : res.angle + 180,
-                    distance: distance
+                    distance: distance,
+                    point: {x: sensorCircle.position.x + Math.cos(res.angle * Math.PI / 180) * distance,
+                            y: sensorCircle.position.y - Math.sin(res.angle * Math.PI / 180) * distance}
                 });
-                console.log(this.car.sensors.indexOf(sensorCircle), "direct circle");
             }
         } else {
             const size = hittingObject.vertices.length;
@@ -158,7 +158,8 @@
                             nextClosestHits.set(sensorCircle, {
                                 direct: true,
                                 angle: res.angle > 180 ? res.angle - 180 : res.angle + 180,
-                                distance: distance
+                                distance: distance,
+                                point: direct
                             });
                         }
                     }
@@ -199,11 +200,12 @@
                             const halfDistance = (res.getDistance() + res2.getDistance()) / 2;
                             if (halfDistance <= sensor.circleRadius &&
                                 (nextClosestHits[sensor] === undefined || nextClosestHits[sensor].distance > halfDistance)) {
-                                nextClosestHits.set(sensorCircle, {
+                                nextClosestHits.set(sensor, {
                                     direct: false,
                                     angle: res2.angle > 180 ? res2.angle - 180 : res2.angle + 180,
                                     distance: halfDistance,
-                                    from: sensorCircle
+                                    from: sensorCircle,
+                                    point: crossPoint
                                 });
                             }
                         }
@@ -213,7 +215,6 @@
 
             // others:
             nextClosestHits.forEach((value, key) => {
-                console.log(this.car.sensors.indexOf(key), "rectangle", value.direct, value.from);
                 key.sensorHits.push(value);
             })
         }
@@ -321,6 +322,8 @@
             }
         })
         this.scale.on('resize', resize, this);
+
+        this.sensorGraphics = this.add.graphics({ lineStyle: { width: 2, color: 0x0000aa } });
     }
 
     function resize(gameSize) {
@@ -361,6 +364,19 @@
         if (this.rotateObj) {
             this.rotateObj.setAngle(this.rotateObj.angle + 1);
         }
+
+        this.sensorGraphics.clear();
+
+        this.car.sensors.forEach((v) => {
+            v.sensorHits.forEach(sh => {
+                const col = Math.round(Math.min(56, Math.max(0, sh.distance)) * 255 / 56);
+                this.sensorGraphics.lineStyle(2, 255*65536 + col*256, 1.0);
+                this.sensorGraphics.strokeLineShape(new Phaser.Geom.Line(v.position.x, v.position.y, sh.point.x, sh.point.y));
+                if (!sh.direct) {
+                    this.sensorGraphics.strokeLineShape(new Phaser.Geom.Line(sh.from.position.x, sh.from.position.y, sh.point.x, sh.point.y));
+                }
+            })
+        });
     }
 </script>
 </body>
