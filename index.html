@@ -29,7 +29,7 @@
             default: 'matter',
             matter: {
                 setBounds: true,
-                gravity: false,
+                gravity: false /*,
                 debug: {
                     showBounds: true,
                     showVelocity: true,
@@ -37,7 +37,7 @@
                     showSeparation: true,
                     showInternalEdges: true,
                     showConvexHulls: true
-                }
+                }*/
             }
         }
     });
@@ -99,6 +99,23 @@
         }
     }
 
+    function getPerpendicularPointOnLine(lineStart, lineEnd, otherPoint) {
+        const Vx = lineEnd.x - lineStart.x,
+            Vy = lineEnd.y - lineStart.y,
+            Vx2 = Vx * Vx,
+            Vy2 = Vy * Vy,
+            Vxy = Vx * Vy,
+            x = (Vx2 * otherPoint.x + Vy2 * lineStart.x  + Vxy * (lineStart.y - otherPoint.y)) / (Vx2 + Vy2),
+            y = (Vx2 * lineStart.y  + Vy2 * otherPoint.y + Vxy * (lineStart.x - otherPoint.x)) / (Vx2 + Vy2);
+        return {
+            x: x,
+            y: y,
+            onTheLine: Math.min(lineStart.x, lineEnd.x) <= x && x <= Math.max(lineStart.x, lineEnd.x) &&
+                Math.min(lineStart.y, lineEnd.y) <= y && y <= Math.max(lineStart.y, lineEnd.y),
+            getDistance: () => distance(otherPoint, {x:x, y:y})
+        };
+    }
+
     function checkSensor(sensorCircle, hittingObject) {
         if (hittingObject.gameObject && hittingObject.gameObject.type === 'Arc') {
             const res = pointOnGoodAngle(
@@ -108,59 +125,97 @@
                 const distance = res.getDistance() - hittingObject.gameObject.height * hittingObject.gameObject.scale / 2;
                 sensorCircle.sensorHits.push({
                     direct: true,
-                    angle: res.angle,
+                    angle: res.angle > 180 ? res.angle - 180 : res.angle + 180,
                     distance: distance
                 });
+                console.log(this.car.sensors.indexOf(sensorCircle), "direct circle");
             }
         } else {
-            const size = hittingObject.vertices.length,
-                x3 = sensorCircle.position.x,
-                y3 = sensorCircle.position.y;
+            const size = hittingObject.vertices.length;
 
-            let nextClosestHit = null;
+            const nextClosestHits = new Map();
 
             for (let curr = 0, next = 1; curr < size; ++curr, ++next) {
                 if (next === size)
                     next = 0;
-                const x1 = hittingObject.vertices[curr].x,
-                    y1 = hittingObject.vertices[curr].y,
-                    x2 = hittingObject.vertices[next].x,
-                    y2 = hittingObject.vertices[next].y,
-                    A = x2 - x1,
-                    B = y2 - y1,
-                    A2 = A * A,
-                    B2 = B * B,
-                    x = (A2*x3 + B2 * x1 + A*B*(y1 - y3)) / (A2 + B2);
-                if (Math.min(x1, x2) > x || x > Math.max(x1, x2))
-                    continue;
-                const y =(A2*y1 + B2*y3 + A*B*(x1 - x3)) / (A2 + B2);
-                if (Math.min(y1, y2) > y || y > Math.max(y1, y2))
-                    continue;
 
-                const res = pointOnGoodAngle(
-                    sensorCircle.position, {
-                        x: x,
-                        y: y
-                    }, sensorCircle.sensorAngle - this.car.angle
-                );
-
-                if (!res.angleOK)
-                    continue;
-                const distance = res.getDistance();
-
-                if (distance <= sensorCircle.circleRadius) {
-                    if (nextClosestHit === null || nextClosestHit.distance > distance) {
-                        nextClosestHit = {
-                            direct: true,
-                            angle: res.angle,
-                            distance: distance
-                        };
+                const direct = getPerpendicularPointOnLine(
+                    hittingObject.vertices[curr],
+                    hittingObject.vertices[next],
+                    sensorCircle.position
+                )
+                if (direct.onTheLine) {
+                    const res = pointOnGoodAngle(
+                        sensorCircle.position, {
+                            x: direct.x,
+                            y: direct.y
+                        }, sensorCircle.sensorAngle - this.car.angle
+                    );
+                    if (res.angleOK) {
+                        const distance = res.getDistance();
+                        if (distance <= sensorCircle.circleRadius &&
+                            (nextClosestHits[sensorCircle] === undefined || nextClosestHits[sensorCircle].distance > distance)) {
+                            nextClosestHits.set(sensorCircle, {
+                                direct: true,
+                                angle: res.angle > 180 ? res.angle - 180 : res.angle + 180,
+                                distance: distance
+                            });
+                        }
                     }
                 }
+
+                const mirrored = {
+                    x: 2 * direct.x - sensorCircle.position.x,
+                    y: 2 * direct.y - sensorCircle.position.y
+                };
+                this.car.sensors.forEach(sensor => {
+                    if (sensor === sensorCircle)
+                        return;
+
+                    const crossPoint = {};
+                    const retxx = Phaser.Geom.Intersects.LineToLine({
+                        x1: hittingObject.vertices[curr].x,
+                        y1: hittingObject.vertices[curr].y,
+                        x2: hittingObject.vertices[next].x,
+                        y2: hittingObject.vertices[next].y
+                    }, {
+                        x1: sensor.position.x,
+                        y1: sensor.position.y,
+                        x2: mirrored.x,
+                        y2: mirrored.y
+                    }, crossPoint);
+                    if (retxx) {
+                        const res = pointOnGoodAngle(
+                            sensorCircle.position,
+                            crossPoint,
+                            sensorCircle.sensorAngle - this.car.angle
+                        );
+                        const res2 = pointOnGoodAngle(
+                            sensor.position,
+                            crossPoint,
+                            sensor.sensorAngle - this.car.angle
+                        );
+                        if (res.angleOK && res2.angleOK) {
+                            const halfDistance = (res.getDistance() + res2.getDistance()) / 2;
+                            if (halfDistance <= sensor.circleRadius &&
+                                (nextClosestHits[sensor] === undefined || nextClosestHits[sensor].distance > halfDistance)) {
+                                nextClosestHits.set(sensorCircle, {
+                                    direct: false,
+                                    angle: res2.angle > 180 ? res2.angle - 180 : res2.angle + 180,
+                                    distance: halfDistance,
+                                    from: sensorCircle
+                                });
+                            }
+                        }
+                    }
+                });
             }
-            if (nextClosestHit !== null) {
-                sensorCircle.sensorHits.push(nextClosestHit);
-            }
+
+            // others:
+            nextClosestHits.forEach((value, key) => {
+                console.log(this.car.sensors.indexOf(key), "rectangle", value.direct, value.from);
+                key.sensorHits.push(value);
+            })
         }
     }
 
