@@ -282,6 +282,8 @@
 
         this.makeDraggable(this.add.rectangle(20, 20, 20, 30, 0xffffff));
         this.makeDraggable(this.add.circle(50, 20, 20, 0xffffff));
+        this.makeDraggable(this.add.circle(600, 300, 50, 0xffffff));
+        this.makeDraggable(this.add.rectangle(550, 160, 100, 100, 0xffffff));
 
         this.input.mouse.disableContextMenu();
         this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
