@@ -76,23 +76,153 @@
     }
 
     function preload() {
-        // this.load.image('key', 'path');
         this.load.image('carIMG', 'car.png');
+    }
+
+    function pointOnGoodAngle(circleCenter, askedPoint, referenceAngle) {
+        // referenceAngle is between [-360, 360]
+        const vx = askedPoint.x - circleCenter.x,
+            vy = askedPoint.y - circleCenter.y,
+            angle = Math.atan2(-vy, vx) / Math.PI * 180;
+        // angle is between [-180, 180]
+        let diffAngle = referenceAngle - angle;
+        // diffAngle is between [-540, 540]
+        if (diffAngle < -180)
+            diffAngle += 360;
+        if (diffAngle > 180)
+            diffAngle -= 360;
+        // diffAngle is between [-180, 180]
+        return {
+            angle: angle,
+            angleOK: Math.abs(diffAngle) <= 60,
+            getDistance: () => Math.sqrt(vx * vx + vy * vy)
+        }
+    }
+
+    function checkSensor(sensorCircle, hittingObject) {
+        if (hittingObject.gameObject && hittingObject.gameObject.type === 'Arc') {
+            const res = pointOnGoodAngle(
+                sensorCircle.position, hittingObject.gameObject, sensorCircle.sensorAngle-this.car.angle
+            );
+            if (res.angleOK) {
+                const distance = res.getDistance() - hittingObject.gameObject.height * hittingObject.gameObject.scale / 2;
+                sensorCircle.sensorHits.push({
+                    direct: true,
+                    angle: res.angle,
+                    distance: distance
+                });
+            }
+        } else {
+            const size = hittingObject.vertices.length,
+                x3 = sensorCircle.position.x,
+                y3 = sensorCircle.position.y;
+
+            let nextClosestHit = null;
+
+            for (let curr = 0, next = 1; curr < size; ++curr, ++next) {
+                if (next === size)
+                    next = 0;
+                const x1 = hittingObject.vertices[curr].x,
+                    y1 = hittingObject.vertices[curr].y,
+                    x2 = hittingObject.vertices[next].x,
+                    y2 = hittingObject.vertices[next].y,
+                    A = x2 - x1,
+                    B = y2 - y1,
+                    A2 = A * A,
+                    B2 = B * B,
+                    x = (A2*x3 + B2 * x1 + A*B*(y1 - y3)) / (A2 + B2);
+                if (Math.min(x1, x2) > x || x > Math.max(x1, x2))
+                    continue;
+                const y =(A2*y1 + B2*y3 + A*B*(x1 - x3)) / (A2 + B2);
+                if (Math.min(y1, y2) > y || y > Math.max(y1, y2))
+                    continue;
+
+                const res = pointOnGoodAngle(
+                    sensorCircle.position, {
+                        x: x,
+                        y: y
+                    }, sensorCircle.sensorAngle - this.car.angle
+                );
+
+                if (!res.angleOK)
+                    continue;
+                const distance = res.getDistance();
+
+                if (distance <= sensorCircle.circleRadius) {
+                    if (nextClosestHit === null || nextClosestHit.distance > distance) {
+                        nextClosestHit = {
+                            direct: true,
+                            angle: res.angle,
+                            distance: distance
+                        };
+                    }
+                }
+            }
+            if (nextClosestHit !== null) {
+                sensorCircle.sensorHits.push(nextClosestHit);
+            }
+        }
     }
 
     function create() {
         this.makeDraggable = makeDraggable;
+        this.checkSensor = checkSensor;
         this.cursors = this.input.keyboard.createCursorKeys();
         this.lastTimeClick = {time: 0, objects: [], right: false};
         this.drags = []
 
-        const wheels = [this.add.rectangle(300, 220, 30, 20, 0x444444), this.add.rectangle(300, 380, 30, 20, 0x444444)];
         this.car = this.matter.add.image(400, 300, 'carIMG');
         this.car.setInteractive();
         this.car.carSpeed = 0;
         this.car.wheelRotation = 0;
-        this.car.wheels = wheels;
+        this.car.sensors = []
+        this.addCarSensor = (s, angleDeg) => {
+            this.car.sensors.push(s);
+            s.sensorAngle = angleDeg;
+            return s;
+        };
 
+/////////////////////////////////////////////
+
+        const M = Phaser.Physics.Matter.Matter;
+        const w = this.car.width;
+        const h = this.car.height;
+        const sx = w / 2;
+        const sy = h / 2;
+        const whole = 236;
+        this.car.setExistingBody(M.Body.create({
+            parts: [
+                M.Bodies.rectangle(sx, sy, w, h, { chamfer: { radius: 18 } }),
+                this.addCarSensor(M.Bodies.circle(w - h * (whole/2-110) / whole, h / 2 - h * 110 / whole , 56, { isSensor: true }), 45),
+                this.addCarSensor(M.Bodies.circle(w, h / 2 - h * 70 / whole , 56, { isSensor: true }), 0),
+                this.addCarSensor(M.Bodies.circle(w, h / 2 - h * 30 / whole , 56, { isSensor: true }), 0),
+                this.addCarSensor(M.Bodies.circle(w, h / 2 + h * 30 / whole , 56, { isSensor: true }), 0),
+                this.addCarSensor(M.Bodies.circle(w, h / 2 + h * 70 / whole , 56, { isSensor: true }), 0),
+                this.addCarSensor(M.Bodies.circle(w - h * (whole/2-110) / whole, h / 2 + h * 110 / whole , 56, { isSensor: true }), -45)
+            ]
+        })).setPosition(400, 300);
+        this.matter.world.on('beforeupdate', function () {
+            this.car.sensors.forEach(v => {
+                v.sensorHits = [];
+            });
+        }, this);
+
+        this.matter.world.on('collisionactive', function (event) {
+            for (let i = 0; i < event.pairs.length; i++) {
+                const bodyA = event.pairs[i].bodyA;
+                const bodyB = event.pairs[i].bodyB;
+                if (this.car.sensors.indexOf(bodyA) < 0) {
+                    if (this.car.sensors.indexOf(bodyB) < 0)
+                        continue;
+
+                    this.checkSensor(bodyB, bodyA);
+                } else {
+                    this.checkSensor(bodyA, bodyB);
+                }
+            }
+        }, this);
+
+///////////////////////////////////////////////////////
 
         this.makeDraggable(this.add.rectangle(20, 20, 20, 30, 0xffffff));
         this.makeDraggable(this.add.circle(50, 20, 20, 0xffffff));
@@ -149,13 +279,12 @@
 
         if (this.cursors.left.isDown && theCar.wheelRotation > -0.9) {
             theCar.wheelRotation -= 0.1;
-        }
-
-        if (this.cursors.right.isDown && theCar.wheelRotation < 0.9) {
+        } else if (this.cursors.right.isDown && theCar.wheelRotation < 0.9) {
             theCar.wheelRotation += 0.1;
         }
 
-        if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+        if ((!this.cursors.left.isDown || theCar.wheelRotation > 0) &&
+            (!this.cursors.right.isDown || theCar.wheelRotation < 0)) {
             theCar.wheelRotation -= Math.sign(theCar.wheelRotation) * 0.025;
         }
 
@@ -165,15 +294,14 @@
             theCar.carSpeed -= 0.01;
         }
 
-        if (!this.cursors.up.isDown && !this.cursors.down.isDown) {
+        if ((!this.cursors.up.isDown || theCar.carSpeed < 0) &&
+            (!this.cursors.down.isDown || theCar.carSpeed > 0)) {
             theCar.carSpeed -= Math.sign(theCar.carSpeed) * 0.005 * (1 + Math.abs(theCar.wheelRotation));
         }
 
         theCar.setAngularVelocity(theCar.wheelRotation * 0.005 * theCar.carSpeed*10)
-        theCar.setVelocityX(-Math.cos(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
-        theCar.setVelocityY(-Math.sin(theCar.angle * Math.PI / 180 + theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
-
-        theCar.wheels.forEach(v => v.setAngle(theCar.wheelRotation / Math.PI * 180 ))
+        theCar.setVelocityX(-Math.cos(theCar.angle * Math.PI / 180 + Math.sign(theCar.carSpeed) * theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
+        theCar.setVelocityY(-Math.sin(theCar.angle * Math.PI / 180 + Math.sign(theCar.carSpeed) * theCar.body.angularVelocity / 0.1) * theCar.carSpeed*10);
 
         if (this.rotateObj) {
             this.rotateObj.setAngle(this.rotateObj.angle + 1);
